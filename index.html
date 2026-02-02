@@ -27,6 +27,7 @@
       background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
       border:1px solid var(--line); border-radius:18px; padding:16px;
       box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      position:relative;
     }
     h1{margin:0 0 10px; font-size:20px}
     .grid{display:grid; grid-template-columns: 1.12fr .88fr; gap:12px}
@@ -137,18 +138,16 @@
       display:grid;
       grid-template-columns: repeat(3, 1fr);
       gap:10px;
-
-      /* ✅ nhỏ ~90% */
       transform: scale(0.9);
       transform-origin: top center;
     }
     .key{
-      padding:13px 0;      /* trước 14px */
+      padding:13px 0;
       border-radius:14px;
       border:1px solid var(--line);
       background:rgba(255,255,255,.06);
       color:var(--text);
-      font-size:17px;      /* trước 18px */
+      font-size:17px;
       font-weight:900;
       cursor:pointer;
       -webkit-tap-highlight-color: transparent;
@@ -180,6 +179,77 @@
       line-height:1.45;
     }
     .finalMsg b{color:#fff}
+
+    /* -------- Review Modal -------- */
+    .modal{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:9999;
+    }
+    .modal.on{ display:flex; }
+    .modalCard{
+      width:min(920px, 100%);
+      max-height:min(86vh, 720px);
+      overflow:hidden;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.22));
+      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+      display:flex;
+      flex-direction:column;
+    }
+    .modalHead{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .modalTitle{
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .modalBody{
+      padding:14px;
+      overflow:auto;
+    }
+    .reviewGrid{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:10px;
+    }
+    @media (max-width:720px){
+      .reviewGrid{ grid-template-columns:1fr; }
+    }
+    .reviewBlock{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(255,255,255,.04);
+      padding:12px;
+    }
+    .reviewBlock h3{
+      margin:0 0 8px;
+      font-size:15px;
+      color:#fff;
+    }
+    .reviewList{
+      margin:0;
+      padding-left:18px;
+      line-height:1.6;
+      color:rgba(232,236,255,.95);
+      font-weight:800;
+    }
+    .reviewHint{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      margin-top:8px;
+    }
   </style>
 </head>
 <body>
@@ -296,7 +366,12 @@
           <div class="pill"><span>Thời gian trả lời mỗi câu:</span> <b id="qLeft">--</b></div>
         </div>
 
-        <!-- Cụm nút ở phía trên phép tính -->
+        <!-- ✅ ÔN TẬP đặt phía trên cụm nút Start/Stop/Reset -->
+        <div class="btns" style="margin-top:10px">
+          <button id="btnReview">ÔN TẬP</button>
+        </div>
+
+        <!-- Cụm nút Start/Stop/Reset -->
         <div class="btns">
           <button class="primary" id="btnStart">Bắt đầu</button>
           <button class="danger" id="btnStop" disabled>Kết thúc</button>
@@ -305,13 +380,11 @@
 
         <div class="problem" id="problem">Chọn bảng và nhấn “Bắt đầu”</div>
 
-        <!-- ✅ Nút OK ngang ô nhập -->
         <div class="answerRow">
           <input id="answer" type="number" inputmode="numeric" placeholder="Nhập kết quả…" disabled />
           <button id="btnOkTop" class="primary" disabled>OK</button>
         </div>
 
-        <!-- ✅ Keypad (không có nút OK nữa) -->
         <div class="keypad" id="keypad" aria-label="Bàn phím số">
           <button class="key" data-k="1" type="button">1</button>
           <button class="key" data-k="2" type="button">2</button>
@@ -336,11 +409,33 @@
     </div>
   </div>
 
+  <!-- ✅ Modal ÔN TẬP -->
+  <div class="modal" id="reviewModal" aria-hidden="true">
+    <div class="modalCard">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">ÔN TẬP BẢNG CỬU CHƯƠNG</div>
+          <div class="muted" id="reviewMeta" style="margin-top:4px; font-weight:900"></div>
+        </div>
+        <button class="primary" id="btnReviewDone">HOÀN THÀNH ÔN TẬP</button>
+      </div>
+      <div class="modalBody">
+        <div id="reviewContent"></div>
+      </div>
+    </div>
+  </div>
+
 <script>
 (() => {
   // ---------- UI ----------
   const tablesWrap = document.getElementById('tablesWrap');
   const selectedLine = document.getElementById('selectedLine');
+
+  const btnReview = document.getElementById('btnReview');
+  const reviewModal = document.getElementById('reviewModal');
+  const reviewMeta = document.getElementById('reviewMeta');
+  const reviewContent = document.getElementById('reviewContent');
+  const btnReviewDone = document.getElementById('btnReviewDone');
 
   const btnStart = document.getElementById('btnStart');
   const btnStop = document.getElementById('btnStop');
@@ -401,7 +496,8 @@
   }
 
   function selectedTables() {
-    return tableItems.filter(x => x.input.checked).map(x => x.n);
+    // luôn trả về theo thứ tự tăng dần
+    return tableItems.filter(x => x.input.checked).map(x => x.n).sort((a,b)=>a-b);
   }
 
   function syncTableButtons() {
@@ -534,6 +630,9 @@
     btnStop.disabled = !on;
     answerEl.disabled = !on;
     btnOkTop.disabled = !on;
+
+    // ✅ không cho bấm ôn tập khi đang chạy
+    btnReview.disabled = on;
 
     tableItems.forEach(x => x.input.disabled = on);
     timeSelect.disabled = on;
@@ -668,30 +767,21 @@
       if(!running) return;
       secondsLeft = Math.max(0, secondsLeft - 1);
       updateTimerUI();
-      if(secondsLeft <= 0) finishSession(true);
+      if(secondsLeft <= 0) finishSession({ timeUp:true, stoppedEarly:false });
     }, 1000);
   }
 
   function getEncouragement(pct){
-    if(pct < 75){
-      return { level:'Chưa đạt', msg:'Cần tập trung và ôn luyện nhiều hơn' };
-    }
-    if(pct >= 75 && pct < 80){
-      return { level:'Cơ bản', msg:'Cố gắng hơn nữa nhé' };
-    }
-    if(pct >= 80 && pct <= 90){
-      return { level:'Khá', msg:'Cố gắng thêm chút nữa' };
-    }
-    if(pct > 90 && pct <= 95){
-      return { level:'Tốt', msg:'Gần thuộc hết rồi, cố lên, cố lên' };
-    }
-    if(pct > 95 && pct < 100){
-      return { level:'Xuất sắc', msg:'Cố gắng thêm chút nữa thôi là thuộc 100% rồi, Cố lên, Cố lên' };
-    }
+    if(pct < 75) return { level:'Chưa đạt', msg:'Cần tập trung và ôn luyện nhiều hơn' };
+    if(pct >= 75 && pct < 80) return { level:'Cơ bản', msg:'Cố gắng hơn nữa nhé' };
+    if(pct >= 80 && pct <= 90) return { level:'Khá', msg:'Cố gắng thêm chút nữa' };
+    if(pct > 90 && pct <= 95) return { level:'Tốt', msg:'Gần thuộc hết rồi, cố lên, cố lên' };
+    if(pct > 95 && pct < 100) return { level:'Xuất sắc', msg:'Cố gắng thêm chút nữa thôi là thuộc 100% rồi, Cố lên, Cố lên' };
     return { level:'Tuyệt vời', msg:'Bạn đã thuộc 100% rồi! Tuyệt vời lắm!' };
   }
 
-  function renderResults(){
+  // ✅ renderResults nhận cờ stoppedEarly để "không đánh giá"
+  function renderResults({ stoppedEarly=false } = {}){
     const total = history.length;
     const pct = calcPct();
 
@@ -704,17 +794,30 @@
     const name = nameRaw ? nameRaw : 'Bạn';
     const tables = selectedTables();
     const tablesText = tables.length ? tables.join(', ') : '2, 3, 4, 5, 6, 7, 8, 9';
-    const { level, msg } = getEncouragement(pct);
 
     finalMsgEl.style.display = 'block';
-    finalMsgEl.innerHTML = `
-      <div><b>${escapeHtml(name)}</b> trả lời đúng <b>${pct}%</b> - Kết quả: <b>${escapeHtml(level)}</b></div>
-      <div>Trong phạm vi Bảng cửu chương: <b>${escapeHtml(tablesText)}</b></div>
-      <div style="margin-top:6px">💡 ${escapeHtml(msg)}</div>
-      <div class="muted" style="margin-top:6px">
-        Lưu ý: Nếu có giới hạn, câu <b>quá giờ</b> sẽ <b>tính như 01 câu SAI</b> trong kết quả chung.
-      </div>
-    `;
+
+    // ✅ nếu dừng sớm: không hiện Level/Msg đánh giá + thêm câu cảnh báo
+    if(stoppedEarly){
+      finalMsgEl.innerHTML = `
+        <div style="color:var(--warn)">⚠️ <b>Bạn chưa hoàn thành thời gian luyện tập</b></div>
+        <div style="margin-top:6px"><b>${escapeHtml(name)}</b> đã làm <b>${total}</b> câu, đúng (tính điểm) <b>${pct}%</b></div>
+        <div>Trong phạm vi Bảng cửu chương: <b>${escapeHtml(tablesText)}</b></div>
+        <div class="muted" style="margin-top:6px">
+          (Đã bấm “Kết thúc” trước khi hết thời gian nên <b>không đánh giá</b> mức độ.)
+        </div>
+      `;
+    }else{
+      const { level, msg } = getEncouragement(pct);
+      finalMsgEl.innerHTML = `
+        <div><b>${escapeHtml(name)}</b> trả lời đúng <b>${pct}%</b> - Kết quả: <b>${escapeHtml(level)}</b></div>
+        <div>Trong phạm vi Bảng cửu chương: <b>${escapeHtml(tablesText)}</b></div>
+        <div style="margin-top:6px">💡 ${escapeHtml(msg)}</div>
+        <div class="muted" style="margin-top:6px">
+          Lưu ý: Nếu có giới hạn, câu <b>quá giờ</b> sẽ <b>tính như 01 câu SAI</b> trong kết quả chung.
+        </div>
+      `;
+    }
 
     resultBody.innerHTML = '';
     const limit = getQuestionLimit();
@@ -723,9 +826,13 @@
       const ans = (h.user === null) ? '<span class="muted">bỏ trống</span>' : h.user;
       const timeTxt = `${h.timeSec}s`;
 
-      const statusTag = (limit > 0 && !h.inLimit)
-        ? '<span class="tag warn">QUÁ GIỜ (Không tính điểm)</span>'
-        : '<span class="tag ok">TRONG GIỜ</span>';
+      // ✅ Yêu cầu: nếu KHÔNG GIỚI HẠN (limit=0) thì cột Trạng thái để trống
+      let statusTag = '';
+      if(limit > 0){
+        statusTag = (!h.inLimit)
+          ? '<span class="tag warn">QUÁ GIỜ (Không tính điểm)</span>'
+          : '<span class="tag ok">TRONG GIỜ</span>';
+      } // limit==0 => ''
 
       const isOver = (limit > 0 && !h.inLimit);
       const userIsCorrect = (h.user !== null && Number.isFinite(h.user) && h.user === h.correct);
@@ -754,7 +861,8 @@
     resultBox.style.display = 'block';
   }
 
-  function finishSession(timeUp=false){
+  // ✅ finishSession nhận option stoppedEarly
+  function finishSession({ timeUp=false, stoppedEarly=false } = {}){
     if(!running) return;
 
     stopTimer();
@@ -765,13 +873,102 @@
       : 'Đã kết thúc. Xem kết quả ở bảng thống kê.';
 
     answerEl.value = '';
-    renderResults();
+    renderResults({ stoppedEarly });
 
     if(timeUp){
       beepTimeUp();
       showStatus('Hết giờ!', 'bad');
     }
   }
+
+  // ---------- ÔN TẬP ----------
+  function buildReviewLinesForTable(n, type){
+    // type: 'mul' or 'div'
+    const lines = [];
+    for(let k=1;k<=10;k++){
+      if(type === 'mul'){
+        lines.push(`${n} × ${k} = ${n*k}`);
+      }else{
+        // chia theo "bảng n": (n*k) ÷ n = k
+        lines.push(`${n*k} ÷ ${n} = ${k}`);
+      }
+    }
+    return lines;
+  }
+
+  function openReview(){
+    if(running) return;
+
+    const tables = selectedTables();
+    if(tables.length === 0){
+      showStatus('Bạn chưa chọn bảng nào.', 'bad');
+      return;
+    }
+    const mode = getMode(); // key: mul/div/mix
+    const qLimit = getQuestionLimit();
+    const timeMin = Number(timeSelect.value);
+
+    const modeText = (mode.key === 'mul') ? 'NHÂN'
+                   : (mode.key === 'div') ? 'CHIA'
+                   : 'NHÂN rồi CHIA (ngẫu nhiên)';
+    const limitText = (qLimit === 0) ? 'Không giới hạn' : `${qLimit}s/câu`;
+    reviewMeta.textContent = `Bảng: ${tables.join(', ')} • Chế độ: ${modeText} • Thiết lập luyện: ${timeMin} phút • Giới hạn: ${limitText}`;
+
+    // render content
+    const blocks = [];
+
+    const pushSection = (title, type) => {
+      blocks.push(`<div class="reviewBlock"><h3>${escapeHtml(title)}</h3><div class="reviewGrid">`); // mở grid
+      for(const n of tables){
+        const lines = buildReviewLinesForTable(n, type);
+        blocks.push(`
+          <div class="reviewBlock" style="margin:0">
+            <h3>Bảng ${n}</h3>
+            <ol class="reviewList">
+              ${lines.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}
+            </ol>
+            <div class="reviewHint">Nhìn – đọc – nhẩm – kiểm tra lại</div>
+          </div>
+        `);
+      }
+      blocks.push(`</div></div>`); // đóng grid + section block
+    };
+
+    if(mode.key === 'mul') pushSection('Ôn tập BẢNG NHÂN', 'mul');
+    else if(mode.key === 'div') pushSection('Ôn tập BẢNG CHIA', 'div');
+    else{
+      pushSection('Ôn tập BẢNG NHÂN (hiện trước)', 'mul');
+      pushSection('Ôn tập BẢNG CHIA (hiện sau)', 'div');
+    }
+
+    reviewContent.innerHTML = blocks.join('');
+    reviewModal.classList.add('on');
+    reviewModal.setAttribute('aria-hidden', 'false');
+
+    // disable các nút chính khi đang mở modal (tránh bấm nhầm)
+    btnStart.disabled = true;
+    btnStop.disabled = true;
+    btnReset.disabled = true;
+    btnReview.disabled = true;
+  }
+
+  function closeReview(){
+    reviewModal.classList.remove('on');
+    reviewModal.setAttribute('aria-hidden', 'true');
+
+    // phục hồi nút theo trạng thái hiện tại
+    btnReset.disabled = false;
+    btnReview.disabled = false;
+    btnStart.disabled = running ? true : false;
+    btnStop.disabled = running ? false : true;
+  }
+
+  btnReview.addEventListener('click', openReview);
+  btnReviewDone.addEventListener('click', closeReview);
+  reviewModal.addEventListener('click', (e) => {
+    // click nền tối để đóng
+    if(e.target === reviewModal) closeReview();
+  });
 
   // ---------- Keypad ----------
   function appendDigit(d){
@@ -836,7 +1033,12 @@
     nextQuestion();
   });
 
-  btnStop.addEventListener('click', () => finishSession(false));
+  // ✅ Stop: nếu chưa hết giờ => stoppedEarly=true => không đánh giá + thông báo
+  btnStop.addEventListener('click', () => {
+    const stoppedEarly = (secondsLeft > 0); // bấm kết thúc trước khi hết giờ
+    finishSession({ timeUp:false, stoppedEarly });
+  });
+
   btnOkTop.addEventListener('click', submitAnswer);
 
   answerEl.addEventListener('keydown', (e) => {
@@ -882,6 +1084,7 @@
 
     btnStart.disabled = false;
     btnStop.disabled = true;
+    btnReview.disabled = false;
     answerEl.disabled = true;
     btnOkTop.disabled = true;
   });
