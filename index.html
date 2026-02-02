@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Luyện bảng cửu chương</title>
+  <title>ÔN LUYỆN - BẢNG CỬU CHƯƠNG</title>
   <style>
     :root{
       --bg:#0b1020; --muted:#9fb0ff; --text:#e8ecff;
@@ -54,9 +54,7 @@
       font-weight:800;
     }
     .tablesLine b{color:#fff}
-    .tablesWrap{
-      display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;
-    }
+    .tablesWrap{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
     label.tableBtn{
       display:inline-flex; align-items:center; justify-content:center;
       min-width:92px;
@@ -68,9 +66,7 @@
       font-weight:900;
       -webkit-tap-highlight-color: transparent;
     }
-    label.tableBtn input{
-      position:absolute; opacity:0; width:1px; height:1px; pointer-events:none;
-    }
+    label.tableBtn input{ position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
     label.tableBtn.on{
       background:var(--chipOn);
       border-color:var(--chipBorderOn);
@@ -129,33 +125,36 @@
       outline:none;
     }
     input[type="number"]:focus{ border-color: rgba(91,124,250,.8); box-shadow:0 0 0 4px rgba(91,124,250,.18); }
+
     .status{ text-align:center; min-height:22px; font-weight:900; letter-spacing:.3px; }
     .status.ok{ color:var(--ok); }
     .status.bad{ color:var(--bad); }
     .status.warn{ color:var(--warn); }
-    .status.late{ color: #ffcc66; }
+    .status.late{ color:#ffcc66; }
 
     .keypad{
       margin-top:8px;
       display:grid;
       grid-template-columns: repeat(3, 1fr);
       gap:10px;
+
+      /* ✅ nhỏ ~90% */
+      transform: scale(0.9);
+      transform-origin: top center;
     }
     .key{
-      padding:14px 0;
+      padding:13px 0;      /* trước 14px */
       border-radius:14px;
       border:1px solid var(--line);
       background:rgba(255,255,255,.06);
       color:var(--text);
-      font-size:18px;
+      font-size:17px;      /* trước 18px */
       font-weight:900;
       cursor:pointer;
       -webkit-tap-highlight-color: transparent;
     }
     .key:active{ transform: scale(0.98); }
     .key.secondary{ background:rgba(255,255,255,.04); }
-    .key.ok{ background: rgba(46,204,113,.18); border-color: rgba(46,204,113,.35); }
-    .key.bad{ background: rgba(255,91,110,.14); border-color: rgba(255,91,110,.35); }
 
     table{width:100%; border-collapse:collapse; font-size:14px}
     th, td{ padding:10px 8px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top}
@@ -294,10 +293,10 @@
         <div class="row" style="justify-content:space-between">
           <div class="pill"><span>Trạng thái:</span> <b id="stateLabel">Chưa bắt đầu</b></div>
           <div class="pill"><span>Chế độ:</span> <b id="modeLabel">—</b></div>
-          <div class="pill"><span>Câu (giới hạn):</span> <b id="qLeft">--</b></div>
+          <div class="pill"><span>Thời gian trả lời mỗi câu:</span> <b id="qLeft">--</b></div>
         </div>
 
-        <!-- ✅ Cụm nút đã chuyển lên phía trên phép tính -->
+        <!-- Cụm nút ở phía trên phép tính -->
         <div class="btns">
           <button class="primary" id="btnStart">Bắt đầu</button>
           <button class="danger" id="btnStop" disabled>Kết thúc</button>
@@ -306,11 +305,13 @@
 
         <div class="problem" id="problem">Chọn bảng và nhấn “Bắt đầu”</div>
 
-        <!-- ✅ Bỏ nút "Xác nhận" -->
+        <!-- ✅ Nút OK ngang ô nhập -->
         <div class="answerRow">
           <input id="answer" type="number" inputmode="numeric" placeholder="Nhập kết quả…" disabled />
+          <button id="btnOkTop" class="primary" disabled>OK</button>
         </div>
 
+        <!-- ✅ Keypad (không có nút OK nữa) -->
         <div class="keypad" id="keypad" aria-label="Bàn phím số">
           <button class="key" data-k="1" type="button">1</button>
           <button class="key" data-k="2" type="button">2</button>
@@ -325,8 +326,6 @@
           <button class="key secondary" data-action="clear" type="button">Xóa</button>
           <button class="key" data-k="0" type="button">0</button>
           <button class="key secondary" data-action="back" type="button">←</button>
-
-          <button class="key ok" style="grid-column:1 / span 3" data-action="ok" type="button">OK</button>
         </div>
 
         <div id="status" class="status"></div>
@@ -346,6 +345,7 @@
   const btnStart = document.getElementById('btnStart');
   const btnStop = document.getElementById('btnStop');
   const btnReset = document.getElementById('btnReset');
+  const btnOkTop = document.getElementById('btnOkTop');
 
   const problemEl = document.getElementById('problem');
   const answerEl = document.getElementById('answer');
@@ -533,6 +533,7 @@
     btnStart.disabled = on;
     btnStop.disabled = !on;
     answerEl.disabled = !on;
+    btnOkTop.disabled = !on;
 
     tableItems.forEach(x => x.input.disabled = on);
     timeSelect.disabled = on;
@@ -707,8 +708,8 @@
 
     finalMsgEl.style.display = 'block';
     finalMsgEl.innerHTML = `
-      <div><b>${escapeHtml(name)}</b> đã đạt <b>${pct}%</b> - Kết quả: <b>${escapeHtml(level)}</b></div>
-      <div>Trong phạm vi các bảng cửu chương: <b>${escapeHtml(tablesText)}</b></div>
+      <div><b>${escapeHtml(name)}</b> trả lời đúng <b>${pct}%</b> - Kết quả: <b>${escapeHtml(level)}</b></div>
+      <div>Trong phạm vi Bảng cửu chương: <b>${escapeHtml(tablesText)}</b></div>
       <div style="margin-top:6px">💡 ${escapeHtml(msg)}</div>
       <div class="muted" style="margin-top:6px">
         Lưu ý: Nếu có giới hạn, câu <b>quá giờ</b> sẽ <b>tính như 01 câu SAI</b> trong kết quả chung.
@@ -806,7 +807,6 @@
     }
     if(action === 'back') backspace();
     else if(action === 'clear') clearAll();
-    else if(action === 'ok') submitAnswer();
   });
 
   // ---------- Events ----------
@@ -837,6 +837,7 @@
   });
 
   btnStop.addEventListener('click', () => finishSession(false));
+  btnOkTop.addEventListener('click', submitAnswer);
 
   answerEl.addEventListener('keydown', (e) => {
     if(e.key === 'Enter'){
@@ -882,11 +883,13 @@
     btnStart.disabled = false;
     btnStop.disabled = true;
     answerEl.disabled = true;
+    btnOkTop.disabled = true;
   });
 
   // init
   btnStop.disabled = true;
   answerEl.disabled = true;
+  btnOkTop.disabled = true;
   timeLeftEl.textContent = '--:--';
   qLeftEl.textContent = '--';
   stateLabel.textContent = 'Chưa bắt đầu';
